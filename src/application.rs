@@ -2,6 +2,7 @@ use std::io::Write;
 use std::any::TypeId;
 use std::collections::HashMap;
 use std::{io, time, mem, thread};
+use std::sync::atomic::Ordering;
 use std::sync::mpsc::{self, Receiver};
 
 use crossterm::event::Event;
@@ -105,7 +106,8 @@ impl<B: Backend> Application<B> {
             | Command::EnableRawMode => crossterm::terminal::enable_raw_mode().map_err(RuntimeError::RawMode),
             | Command::DisableRawMode => crossterm::terminal::disable_raw_mode().map_err(RuntimeError::RawMode),
             | Command::Screen(ident) => Ok(self.activate_screen(ident)?),
-            | Command::Crossterm(command) => crossterm::execute!(self.sink, command).map_err(RuntimeError::CrosstermCommandExecution),
+            | Command::Crossterm(command) =>
+                crossterm::execute!(self.sink, command).map_err(RuntimeError::CrosstermCommandExecution),
             | Command::Quit => {
                 self.exiting = true;
                 Ok(())
@@ -122,7 +124,7 @@ impl<B: Backend> Application<B> {
 
         self.activate_screen(screen)?;
 
-        let (_, events) = events::listen(self.event_poll_rate);
+        let (_, events, event_quit_handle) = events::listen(self.event_poll_rate);
 
         loop {
             if self.exiting {
@@ -154,6 +156,8 @@ impl<B: Backend> Application<B> {
         if let Some(callback) = self.shutdown_callback {
             self.handle_command(callback())?;
         }
+
+        event_quit_handle.store(true, Ordering::Relaxed);
 
         Ok(())
     }

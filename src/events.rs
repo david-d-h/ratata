@@ -1,4 +1,6 @@
 use std::thread;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver};
 use std::time::Duration;
 
@@ -16,10 +18,18 @@ pub enum EventListenerError {
 
 pub type JoinHandle = thread::JoinHandle<Result<(), EventListenerError>>;
 
-pub fn listen(timeout: Duration) -> (JoinHandle, Receiver<Event>) {
+pub fn listen(timeout: Duration) -> (JoinHandle, Receiver<Event>, Arc<AtomicBool>) {
     let (tx, rx) = mpsc::channel();
 
+    let quit_handle = Arc::new(AtomicBool::new(false));
+
+    let should_quit = quit_handle.clone();
+
     let handle = thread::spawn(move || loop {
+        if should_quit.load(Ordering::Relaxed) {
+            break Ok(());
+        }
+
         if !event::poll(timeout)? {
             continue;
         }
@@ -34,5 +44,5 @@ pub fn listen(timeout: Duration) -> (JoinHandle, Receiver<Event>) {
         tx.send(event)?;
     });
 
-    (handle, rx)
+    (handle, rx, quit_handle)
 }
