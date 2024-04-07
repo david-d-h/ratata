@@ -1,0 +1,13 @@
+[package]
+name = "ratata"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ratatui = "0.26.1"
+crossterm = "0.27.0"
+thiserror = "1.0.58"
+
+[features]
+default = ["paste"]
+paste = ["crossterm/bracketed-paste"]
