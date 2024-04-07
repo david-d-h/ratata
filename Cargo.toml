@@ -1,7 +1,13 @@
 [package]
 name = "ratata"
 version = "0.1.0"
+authors = ["David d.H. <75451291+david-d-h@users.noreply.github.com>"]
 edition = "2021"
+description = "A tiny application builder for ratatui that includes everything you need to get started."
+repository = "https://github.com/david-d-h/ratata"
+license = "MIT"
+license-file = "LICENSE"
+keywords = ["tui", "terminal"]
 
 [dependencies]
 ratatui = "0.26.1"
