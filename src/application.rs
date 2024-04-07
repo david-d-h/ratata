@@ -60,14 +60,19 @@ impl<B: Backend> Application<B> {
         Builder::new()
     }
 
-    fn try_read_event(&self, events: &Receiver<Event>) -> Result<Option<Event>, EventSourceDisconnectedError> {
-        events.try_recv().map_or_else(
-            |err| match err {
-                mpsc::TryRecvError::Disconnected => Err(EventSourceDisconnectedError),
-                mpsc::TryRecvError::Empty => Ok(None),
-            },
-            |event| Ok(Some(event)),
-        )
+    fn try_read_events(&self, events: &Receiver<Event>) -> Result<Vec<Event>, EventSourceDisconnectedError> {
+        // Allocate some default capacity.
+        let mut buffer = Vec::with_capacity(5);
+
+        loop {
+            match events.try_recv() {
+                Err(mpsc::TryRecvError::Empty) => break,
+                Err(mpsc::TryRecvError::Disconnected) => return Err(EventSourceDisconnectedError),
+                Ok(event) => buffer.push(event),
+            }
+        }
+
+        Ok(buffer)
     }
 
     fn shutdown_screens(&mut self) {
@@ -100,7 +105,6 @@ impl<B: Backend> Application<B> {
                 for command in commands {
                     self.handle_command(command)?;
                 }
-
                 Ok(())
             },
             | Command::EnableRawMode => crossterm::terminal::enable_raw_mode().map_err(RuntimeError::RawMode),
@@ -137,15 +141,19 @@ impl<B: Backend> Application<B> {
 
             self.last_tick = Some(time::Instant::now());
 
-            let message = match self.try_read_event(&events)? {
-                Some(event) => Message::from(event),
-                None => Message::Tick,
-            };
+            let mut messages = self.try_read_events(&events)?
+                .into_iter()
+                .map(Message::from)
+                .collect::<Vec<_>>();
 
-            let screen = &mut self.active_screen_entry.as_mut().unwrap().1;
+            messages.push(Message::Tick);
 
-            if let Some(command) = screen.update(message) {
-                self.handle_command(command)?;
+            for message in messages {
+                let screen = &mut self.active_screen_entry.as_mut().unwrap().1;
+
+                if let Some(command) = screen.update(message) {
+                    self.handle_command(command)?;
+                }
             }
 
             let screen = &mut self.active_screen_entry.as_mut().unwrap().1;
