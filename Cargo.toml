@@ -6,7 +6,6 @@ edition = "2021"
 description = "A tiny application builder for ratatui that includes everything you need to get started."
 repository = "https://github.com/david-d-h/ratata"
 license = "MIT"
-license-file = "LICENSE"
 keywords = ["tui", "terminal"]
 
 [dependencies]
